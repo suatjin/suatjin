@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HQ Stock Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f4;color:#1c1c1a;font-size:14px;line-height:1.5}
+header{background:#fff;border-bottom:1px solid #e5e5e3;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:10;gap:8px}
+.container{max-width:1160px;margin:0 auto;padding:20px 16px}
+.card{background:#fff;border:1px solid #e5e5e3;border-radius:12px;padding:18px 22px;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:600;color:#444441;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.grid{display:grid;gap:10px;margin-bottom:10px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g4{grid-template-columns:1fr 1fr 1fr 1fr}
+.g5{grid-template-columns:1fr 1fr 1fr 1fr 1fr}
+@media(max-width:760px){.g3,.g4,.g5{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.g2,.g3,.g4,.g5{grid-template-columns:1fr}}
+label{display:block;font-size:11px;color:#888780;font-weight:500;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+label .req{color:#e24b4a;margin-left:2px}
+input,select{width:100%;padding:8px 10px;border:1px solid #e5e5e3;border-radius:8px;font-size:13px;color:#1c1c1a;background:#fff;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:#378ADD;box-shadow:0 0 0 3px rgba(55,138,221,.12)}
+input.err,select.err{border-color:#e24b4a !important;box-shadow:0 0 0 3px rgba(226,75,74,.1)}
+input::placeholder{color:#b4b2a9}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid #d3d1c7;background:#fff;font-size:13px;font-weight:500;cursor:pointer;color:#444441;transition:all .15s;white-space:nowrap}
+.btn:hover{background:#f5f5f4;border-color:#b4b2a9}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:#1c1c1a;color:#fff;border-color:#1c1c1a}
+.btn-primary:hover{background:#333}
+.btn-danger{border-color:#fca5a5;color:#991b1b}
+.btn-danger:hover{background:#fef2f2}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{padding:5px 11px;border-radius:8px;border:1px solid transparent;font-size:12px;font-weight:500;cursor:pointer;color:#888780;transition:all .15s;background:transparent}
+.tab.active{background:#f5f5f4;border-color:#d3d1c7;color:#1c1c1a}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;white-space:nowrap}
+.b-pending{background:#fef3c7;color:#92400e}
+.b-partial{background:#dbeafe;color:#1e40af}
+.b-returned{background:#d1fae5;color:#065f46}
+.b-noreturn{background:#fee2e2;color:#991b1b}
+.table-wrap{overflow-x:auto;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1100px}
+th{text-align:left;font-size:11px;color:#888780;font-weight:500;padding:8px 10px;border-bottom:1px solid #e5e5e3;white-space:nowrap;background:#fafaf9}
+td{padding:7px 10px;border-bottom:1px solid #f0f0ee;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+tr:hover td{background:#fafaf9}
+tr:last-child td{border-bottom:none}
+tfoot td{background:#fafaf9;font-weight:600;border-top:1px solid #e5e5e3;border-bottom:none;font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+@media(max-width:600px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:#fff;border:1px solid #e5e5e3;border-radius:10px;padding:13px 16px}
+.kpi-lbl{font-size:11px;color:#888780;font-weight:500;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.kpi-val{font-size:24px;font-weight:700;letter-spacing:-1px;line-height:1}
+.share-row{display:flex;gap:8px;align-items:center;margin-top:10px;background:#f5f5f4;border:1px solid #e5e5e3;border-radius:8px;padding:8px 12px}
+.share-row input{flex:1;background:transparent;border:none;outline:none;font-size:12px;color:#444441;font-family:monospace}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1c1c1a;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;pointer-events:none;white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.empty{text-align:center;padding:36px 20px;color:#b4b2a9;font-size:13px}
+.sync{font-size:11px;color:#888780;display:flex;align-items:center;gap:4px}
+.dot{width:6px;height:6px;border-radius:50%;background:#639922;display:inline-block}
+.loc-badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:4px;font-weight:600;background:#f0f0ee;color:#444441}
+.section-divider{font-size:11px;font-weight:600;color:#b4b2a9;text-transform:uppercase;letter-spacing:.6px;margin:4px 0 10px;padding-bottom:8px;border-bottom:1px solid #f0f0ee}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="14" rx="2" stroke="#1c1c1a" stroke-width="1.5"/><path d="M6 8h8M6 11h5" stroke="#1c1c1a" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <span style="font-size:15px;font-weight:600;letter-spacing:-.3px">HQ Stock Tracker</span>
+    <span style="font-size:12px;color:#888780;display:none" id="headerSub">Ready Stock</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span class="sync"><span class="dot"></span>Auto-saved</span>
+    <button class="btn btn-sm" onclick="exportXlsx()">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3M2 10v1a1 1 0 001 1h8a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Export Excel
+    </button>
+    <button class="btn btn-sm btn-primary" onclick="toggleShare()">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="11" cy="3" r="1.5" stroke="white" stroke-width="1.3"/><circle cx="11" cy="11" r="1.5" stroke="white" stroke-width="1.3"/><circle cx="3" cy="7" r="1.5" stroke="white" stroke-width="1.3"/><path d="M4.3 6.3l5.4-2.6M4.3 7.7l5.4 2.6" stroke="white" stroke-width="1.3" stroke-linecap="round"/></svg>Share link
+    </button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-lbl">Total out</div><div class="kpi-val" id="kpi-total">0</div></div>
+    <div class="kpi"><div class="kpi-lbl">Returned</div><div class="kpi-val" id="kpi-ret" style="color:#065f46">0</div></div>
+    <div class="kpi"><div class="kpi-lbl">Pending return</div><div class="kpi-val" id="kpi-pend" style="color:#92400e">0</div></div>
+    <div class="kpi"><div class="kpi-lbl">Non-return</div><div class="kpi-val" id="kpi-noret" style="color:#991b1b">0</div></div>
+  </div>
+
+  <!-- ── LOG PRODUCT TAKEN ── -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="#444" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Log product taken
+    </div>
+
+    <div class="section-divider">Person &amp; transaction info</div>
+    <div class="grid g5">
+      <div><label>PIC <span class="req">*</span></label><input type="text" id="pic" placeholder="e.g. Adam"></div>
+      <div><label>Affiliate username <span class="req">*</span></label><input type="text" id="affiliate" placeholder="e.g. @adam_cuckoo"></div>
+      <div><label>LUR no. <span class="req">*</span></label><input type="text" id="lur" placeholder="e.g. LUR-1601/01"></div>
+      <div><label>Date taken <span class="req">*</span></label><input type="date" id="dateTaken"></div>
+      <div><label>Stock location <span class="req">*</span></label>
+        <select id="location">
+          <option value="">Select location</option>
+          <option value="HQ">HQ</option>
+          <option value="Warehouse">Warehouse</option>
+          <option value="EC">EC</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-divider">Product details</div>
+    <div class="grid g4">
+      <div style="grid-column:span 2"><label>Product <span class="req">*</span></label><select id="product"><option value="">Select product</option></select></div>
+      <div><label>Stock grade <span class="req">*</span></label>
+        <select id="grade">
+          <option value="">Select grade</option>
+          <option value="A">A — New Stock</option>
+          <option value="L">L — Loan Stock</option>
+          <option value="A TO L">A TO L — Convert</option>
+        </select>
+      </div>
+      <div><label>Quantity <span class="req">*</span></label><input type="number" id="qty" min="1" placeholder="1"></div>
+    </div>
+    <div class="grid g2">
+      <div><label>Remark <span class="req">*</span></label><input type="text" id="remark" placeholder="Purpose, event, notes…"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="logTaken()">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>Log taken
+      </button>
+      <button class="btn btn-danger" onclick="logNoReturn()">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="#991b1b" stroke-width="1.3"/><path d="M4 4l6 6" stroke="#991b1b" stroke-width="1.3" stroke-linecap="round"/></svg>Mark as non-return
+      </button>
+    </div>
+  </div>
+
+  <!-- ── LOG RETURN ── -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M5 8l3-3-3-3M13 8H8a3 3 0 000 6h1" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Log return
+    </div>
+    <div class="grid g5">
+      <div style="grid-column:span 2"><label>Select LUR <span class="req">*</span></label><select id="returnLur"><option value="">— select pending LUR —</option></select></div>
+      <div><label>Affiliate username <span class="req">*</span></label><input type="text" id="retAffiliate" placeholder="e.g. @adam_cuckoo"></div>
+      <div><label>Qty returned <span class="req">*</span></label><input type="number" id="retQty" min="1" placeholder="1"></div>
+      <div><label>Date returned <span class="req">*</span></label><input type="date" id="dateReturn"></div>
+    </div>
+    <div class="grid g2">
+      <div><label>Return remark <span class="req">*</span></label><input type="text" id="retRemark" placeholder="e.g. returned after event"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="logReturn()">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 7l3 3 7-7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Log return
+      </button>
+    </div>
+  </div>
+
+  <!-- ── SHARE PANEL ── -->
+  <div class="card" id="sharePanel" style="display:none;border-color:#b5d4f4">
+    <div class="card-title" style="color:#185fa5">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="12" cy="4" r="2" stroke="#185fa5" stroke-width="1.3"/><circle cx="12" cy="12" r="2" stroke="#185fa5" stroke-width="1.3"/><circle cx="4" cy="8" r="2" stroke="#185fa5" stroke-width="1.3"/><path d="M5.8 7l4.4-2.2M5.8 9l4.4 2.2" stroke="#185fa5" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Share with colleagues
+    </div>
+    <p style="font-size:12px;color:#888780;margin-bottom:10px">Generate a link with all your current records. Anyone who opens it will have the data loaded automatically. Re-generate after adding new records.</p>
+    <div class="btn-row">
+      <button class="btn" onclick="generateShareLink()">Generate link</button>
+      <button class="btn" onclick="toggleShare()" style="color:#888780">Close</button>
+    </div>
+    <div class="share-row" id="shareBox" style="display:none">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M5.5 8.5l3-3M4 9a2.5 2.5 0 010-3.5l1-1a2.5 2.5 0 013.5 3.5" stroke="#888780" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <input type="text" id="shareUrl" readonly>
+      <button class="btn btn-sm" onclick="copyLink()">Copy</button>
+    </div>
+    <p style="font-size:11px;color:#b4b2a9;margin-top:8px">Re-generate after adding new records to keep the link up to date.</p>
+  </div>
+
+  <!-- ── TALLY TABLE ── -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      <div class="card-title" style="margin:0">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="#444" stroke-width="1.3"/><path d="M2 6h12M6 6v8" stroke="#444" stroke-width="1.3"/></svg>
+        Stock tally
+        <span style="font-size:11px;color:#888780;font-weight:400" id="rowCount"></span>
+      </div>
+      <div class="tabs">
+        <button class="tab active" id="tab-all" onclick="setTab('all')">All</button>
+        <button class="tab" id="tab-out" onclick="setTab('out')">Pending</button>
+        <button class="tab" id="tab-partial" onclick="setTab('partial')">Partial</button>
+        <button class="tab" id="tab-returned" onclick="setTab('returned')">Returned</button>
+        <button class="tab" id="tab-noreturn" onclick="setTab('noreturn')">Non-return</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>PIC</th>
+            <th>Affiliate</th>
+            <th>LUR</th>
+            <th>Location</th>
+            <th>Product</th>
+            <th>Grade</th>
+            <th>Out</th>
+            <th>Ret.</th>
+            <th>Bal.</th>
+            <th>Date taken</th>
+            <th>Date returned</th>
+            <th>Status</th>
+            <th>Remark</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tallyBody"></tbody>
+        <tfoot id="tallyFoot"></tfoot>
+      </table>
+    </div>
+    <div class="empty" id="emptyMsg">No records yet — log a product taken above to get started.</div>
+  </div>
+
+</div>
+<div id="toast"></div>
+
+<script>
+const PRODUCTS = [
+  {cat:"Color King Pots",code:"ESA0026",name:"CUCKOO X COLOR KING 3000ML STOCK POT - CHERRY PINK"},
+  {cat:"Color King Pots",code:"ESA0027",name:"CUCKOO X COLOR KING 1800ML HOT POT - CHERRY PINK"},
+  {cat:"GWP",code:"ESA0023",name:"SHIN RAMYUN"},
+  {cat:"GWP",code:"GIFT0037",name:"CUCKOO RED FLASK"},
+  {cat:"GWP",code:"GIFT0045",name:"AIR-TIGHT GLASS CONTAINER 680ML"},
+  {cat:"GWP",code:"GIFT0050",name:"MINI CHOPPER"},
+  {cat:"GWP",code:"GIFT0093",name:"AWAN TO-GO DISPOSABLE LOTIONSOFT FACE TOWELS"},
+  {cat:"GWP",code:"GIFT0095",name:"OATSIDE OAT MILK 200ML"},
+  {cat:"GWP",code:"GIFT0097",name:"2026 CNY ANGPAO"},
+  {cat:"GWP",code:"GIFT0100",name:"FUKURO STAINLESS STEEL SOUP LADLE"},
+  {cat:"GWP",code:"EVA0001",name:"CUCKOO GENERIC POCKET TISSUE"},
+  {cat:"GWP",code:"EVA0002",name:"CUCKOO X LGACY 30 DATO SITI NURHALIZA RED FLASK"},
+  {cat:"GWP",code:"EVA0003",name:"CUCKOO X LEGACY 30 DATO SITI NURHALIZA STICKERS"},
+  {cat:"GWP",code:"EVA0004",name:"CUCKOO X LEGACY 30 DATO SITI NURHALIZA TOTE BEG"},
+  {cat:"GWP",code:"EVA0005",name:"CUCKOO X LEGACY 30 DATO SITI NURHALIZA FOLDABLE HANDFAN"},
+  {cat:"Home Appliances",code:"FTAP-IHP13",name:"ULTRA DEO HEPA FILTER REPLACEMENT (i-TYPE)"},
+  {cat:"Home Appliances",code:"CAC-AE1010FW",name:"CUCKOO i-MODEL AIR PURIFIER"},
+  {cat:"Kitchen Appliances",code:"CDW-A0310TW",name:"CUCKOO CDW-A0310TW Mini 5L PORTABLE DISHWASHER"},
+  {cat:"Kitchen Appliances",code:"CHR-SB087",name:"STAND CASE 087"},
+  {cat:"Kitchen Appliances",code:"CIHR-AL201FB",name:"HYBRID INDUCTION RANGE (INDUCTWO)"},
+  {cat:"Kitchen Appliances",code:"CIHR-AL201FB-P80",name:"HYBRID INDUCTION RANGE (INDUCTWO) - PLUS 80"},
+  {cat:"Kitchen Appliances",code:"CIHR-EL301FB",name:"HYBRID INDUCTION RANGE (INDUCTRIO)"},
+  {cat:"Kitchen Appliances",code:"CIHR-EL301FB-P80",name:"HYBRID INDUCTION RANGE (INDUCTRIO) - PLUS 80"},
+  {cat:"Kitchen Appliances",code:"CPU-SA1610",name:"KYNDELL COOKWARE CPU-SA1610"},
+  {cat:"Kitchen Appliances",code:"CPU-SA1620",name:"KYNDELL COOKWARE CPU-SA1620"},
+  {cat:"Kitchen Appliances",code:"CPU-SA2020",name:"KYNDELL COOKWARE CPU-SA2020"},
+  {cat:"Kitchen Appliances",code:"CPU-SA2420",name:"KYNDELL COOKWARE CPU-SA2420"},
+  {cat:"Kitchen Appliances",code:"CPU-SA2421",name:"KYNDELL COOKWARE CPU-SA2421"},
+  {cat:"Kitchen Appliances",code:"CPWP-C3801W/EXP",name:"CUCKOO WATER PITCHER (ENG Version)"},
+  {cat:"Kitchen Appliances",code:"CPWPFS-C10N/EXP",name:"CUCKOO WATER PITCHER FILTER (ENG Version)"},
+  {cat:"Microwave",code:"CMW-QF2010EB",name:"CUCKOO 20L FLAT X MICROWAVE OVEN"},
+  {cat:"Rice Cooker",code:"CR-0215M",name:"CR-0215M"},
+  {cat:"Rice Cooker",code:"CR-0675F",name:"CUCKOO CR-0675F 6 CUPS MULTICOOKER"},
+  {cat:"Rice Cooker",code:"CR-0685FW",name:"CUCKOO CR-0685F 6 CUPS MULTICOOKER"},
+  {cat:"Rice Cooker",code:"CR-1005",name:"CUCKOO CR-1005 10 CUPS RICE COOKER"},
+  {cat:"Rice Cooker",code:"CR-1020F",name:"CUCKOO CR-1020F 10 CUPS MULTICOOKER"},
+  {cat:"Rice Cooker",code:"CR-1050F",name:"CUCKOO CR-1050F 10 CUPS MULTICOOKER"},
+  {cat:"Rice Cooker",code:"CR-1095",name:"CUCKOO CR-1095 10 CUPS RICE COOKER"},
+  {cat:"Rice Cooker",code:"CRP-JHT10",name:"CUCKOO JHT-10 10 CUPS TWIN PRESSURE MULTICOOKER"},
+  {cat:"Rice Cooker",code:"CRP-LHTR0609F",name:"CUCKOO CRP-LHTR0609F TWIN PRESSURE RICE COOKER"},
+  {cat:"Rice Cooker",code:"CRP-LHTR1009F",name:"CUCKOO CRP-LHTR1009F TWIN PRESSURE RICE COOKER"},
+  {cat:"SH Flex Series",code:"CWC-DS301W",name:"CUCKOO AQUAFLEX FILTERED SHOWER HEAD"},
+  {cat:"SH Flex Series",code:"CWCF-DES301S",name:"CUCKOO AQUAFLEX SHOWER BODY FILTER"},
+  {cat:"SH Mist Series",code:"CWC-FHM2710W",name:"CUCKOO AQUAMIST SHOWER HEAD"},
+  {cat:"SH Mist Series",code:"CWCF-FLV10",name:"AQUAMIST CWCF-FLV10 (VITAMIN, HEAD)"},
+  {cat:"SH Mist Series",code:"CWCF-FS11",name:"CUCKOO AQUAMIST BODY FILTER"},
+  {cat:"SH Pro X Series",code:"CWC-EH3010W",name:"CUCKOO AQUAPRO X SHOWER HEAD"},
+  {cat:"SH Pro X Series",code:"CWCF-ECS11",name:"CUCKOO AQUAPRO X BODY FILTER"},
+  {cat:"SH Pro X Series",code:"CWCF-ELV10",name:"AQUAPROX SHOWER HEAD FILTER (VITAMIN, HEAD)"},
+  {cat:"SH Pro/Lite Series",code:"CWC-BB001C",name:"CUCKOO AQUAFLOW SINGLE FILTERED SHOWER HEAD"},
+  {cat:"SH Pro/Lite Series",code:"CWC-CB001C",name:"CUCKOO AQUAFLOW DUAL FILTERED SHOWER HEAD"},
+  {cat:"SH Pro/Lite Series",code:"CWCF-CH1C",name:"CUCKOO AQUAFLOW DUAL FILTERED SHOWER HEAD FILTER - HEAD"},
+  {cat:"SH Pro/Lite Series",code:"CWCF-CHVT1C",name:"CUCKOO AQUAFLOW DUAL FILTERED SHOWER HEAD FILTER - HEAD (VITAMIN)"},
+  {cat:"SH Pro/Lite Series",code:"CWCF-SE4BC",name:"CUCKOO AQUAFLOW FILTERED SHOWER HEAD FILTER - BODY"},
+  {cat:"To Be Cleared",code:"CWC-CT001A",name:"CUCKOO AQUAFLOW FILTERED SINK HEAD"},
+  {cat:"To Be Cleared",code:"CWCF-CT601S",name:"CUCKOO AQUAFLOW FILTERED SINK HEAD FILTER"},
+  {cat:"To Be Cleared",code:"CR-1010F",name:"CUCKOO CR-1010F 10 CUPS MULTICOOKER"},
+  {cat:"To Be Cleared",code:"CR-0661",name:"CUCKOO CR-0661 6 CUPS RICE COOKER"},
+  {cat:"To Be Cleared",code:"CR-1413",name:"CUCKOO CR-1413 14 CUPS RICE COOKER"},
+  {cat:"To Be Cleared",code:"CR-1713",name:"CUCKOO CR-1713 17 CUPS RICE COOKER"},
+  {cat:"To Be Cleared",code:"CPWP-C3801W",name:"CUCKOO WATER PITCHER"},
+  {cat:"To Be Cleared",code:"CPWPFS-C10N",name:"CUCKOO WATER PITCHER FILTER"},
+  {cat:"To Be Cleared",code:"CPU-PLUS-A",name:"KYNDELL COOKWARE 2 PCS PLUS (1610 & 1620)"},
+  {cat:"To Be Cleared",code:"CPU-PLUS-B",name:"KYNDELL COOKWARE 2 PCS PLUS (2020 & 2421)"}
+];
+
+const LOC_COLORS = {HQ:'#dbeafe',Warehouse:'#d1fae5',EC:'#fef3c7'};
+const LOC_TEXT   = {HQ:'#1e40af',Warehouse:'#065f46',EC:'#92400e'};
+
+function buildProductDropdown(){
+  const sel = document.getElementById('product');
+  while(sel.options.length > 1) sel.remove(1);
+  let lastCat = '';
+  PRODUCTS.forEach(p => {
+    if(p.cat !== lastCat){
+      sel.appendChild(document.createElement('optgroup')).label = p.cat;
+      lastCat = p.cat;
+    }
+    const o = document.createElement('option');
+    o.value = p.code;
+    o.textContent = p.code + ' — ' + p.name;
+    sel.lastChild.appendChild(o);
+  });
+}
+
+const STORE = 'hq_stock_v5';
+let records = [], currentTab = 'all';
+
+function today(){ return new Date().toISOString().slice(0,10); }
+document.getElementById('dateTaken').value = today();
+document.getElementById('dateReturn').value = today();
+
+function load(){ try{ const r=localStorage.getItem(STORE); if(r) records=JSON.parse(r); }catch(e){} }
+function save(){ try{ localStorage.setItem(STORE,JSON.stringify(records)); }catch(e){} }
+
+function checkUrl(){
+  try{
+    const h = location.hash;
+    if(h && h.startsWith('#data=')){
+      const j = JSON.parse(decodeURIComponent(atob(h.slice(6))));
+      if(Array.isArray(j) && j.length){ records=j; save(); history.replaceState(null,'',location.pathname); toast('Loaded '+j.length+' records from shared link'); }
+    }
+  }catch(e){}
+}
+
+function toast(msg,dur=2800){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+function v(id){ return document.getElementById(id).value.trim(); }
+
+function validate(ids){
+  let ok=true;
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el || !el.value.trim()){ if(el) el.classList.add('err'); ok=false; }
+    else el.classList.remove('err');
+  });
+  if(!ok) toast('Please fill in all required fields.');
+  return ok;
+}
+
+function makeRec(extra={}){
+  return {
+    id: Date.now(),
+    pic: v('pic'),
+    affiliate: v('affiliate'),
+    lur: v('lur'),
+    dateTaken: v('dateTaken'),
+    location: v('location'),
+    product: v('product'),
+    grade: v('grade'),
+    qtyOut: parseInt(v('qty'))||0,
+    qtyReturned: 0,
+    retAffiliate: '',
+    dateReturn: '',
+    remark: v('remark'),
+    retRemark: '',
+    status: 'out',
+    ...extra
+  };
+}
+
+function logTaken(){
+  if(!validate(['pic','affiliate','lur','dateTaken','location','product','grade','qty','remark'])) return;
+  records.push(makeRec());
+  save(); refreshLurSelect(); render(); updateKpis();
+  toast('Logged: '+v('product')+' taken by '+v('pic'));
+  clearTakeForm();
+}
+
+function logNoReturn(){
+  if(!validate(['pic','affiliate','lur','dateTaken','location','product','grade','qty','remark'])) return;
+  records.push(makeRec({status:'noreturn', dateReturn:today(), retRemark:'Non-return'}));
+  save(); refreshLurSelect(); render(); updateKpis();
+  toast('Logged as non-return');
+  clearTakeForm();
+}
+
+function clearTakeForm(){
+  ['pic','affiliate','lur','qty','remark'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('grade').value='';
+  document.getElementById('product').value='';
+  document.getElementById('location').value='';
+}
+
+function logReturn(){
+  if(!validate(['returnLur','retAffiliate','retQty','dateReturn','retRemark'])) return;
+  const id=parseInt(v('returnLur')), retQty=parseInt(v('retQty'))||0;
+  const r=records.find(x=>x.id===id); if(!r) return;
+  const bal=r.qtyOut-r.qtyReturned;
+  if(retQty>bal){ toast('Return qty ('+retQty+') exceeds balance ('+bal+')'); return; }
+  r.qtyReturned += retQty;
+  r.retAffiliate = v('retAffiliate');
+  r.dateReturn   = v('dateReturn');
+  r.retRemark    = v('retRemark');
+  r.status = r.qtyReturned >= r.qtyOut ? 'returned' : 'partial';
+  save(); refreshLurSelect(); render(); updateKpis();
+  toast(retQty+' unit(s) returned — balance now '+(r.qtyOut-r.qtyReturned));
+  ['retAffiliate','retQty','retRemark'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('returnLur').value='';
+}
+
+function deleteRecord(id){
+  if(!confirm('Delete this record?')) return;
+  records=records.filter(r=>r.id!==id);
+  save(); refreshLurSelect(); render(); updateKpis();
+  toast('Record deleted');
+}
+
+function refreshLurSelect(){
+  const sel=document.getElementById('returnLur');
+  const prev=sel.value;
+  while(sel.options.length>1) sel.remove(1);
+  records.filter(r=>r.status!=='returned'&&r.status!=='noreturn').forEach(r=>{
+    const bal=r.qtyOut-r.qtyReturned;
+    const o=document.createElement('option');
+    o.value=r.id;
+    o.textContent=r.lur+' | '+r.pic+' | '+r.product+' (bal: '+bal+')';
+    sel.appendChild(o);
+  });
+  if(prev) sel.value=prev;
+}
+
+function setTab(tab){
+  currentTab=tab;
+  ['all','out','partial','returned','noreturn'].forEach(t=>document.getElementById('tab-'+t).classList.toggle('active',t===tab));
+  render();
+}
+
+function badge(r){
+  const bal=r.qtyOut-r.qtyReturned;
+  if(r.status==='returned') return '<span class="badge b-returned">Returned</span>';
+  if(r.status==='noreturn') return '<span class="badge b-noreturn">Non-return</span>';
+  if(r.status==='partial')  return '<span class="badge b-partial">Partial ('+bal+' left)</span>';
+  return '<span class="badge b-pending">Pending</span>';
+}
+
+function locBadge(loc){
+  const bg=LOC_COLORS[loc]||'#f0f0ee', fg=LOC_TEXT[loc]||'#444441';
+  return '<span style="background:'+bg+';color:'+fg+';display:inline-block;font-size:10px;padding:1px 7px;border-radius:4px;font-weight:600">'+esc(loc)+'</span>';
+}
+
+function gradeBadge(g){
+  return '<span style="background:#f0f0ee;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:600;color:#444441">'+esc(g)+'</span>';
+}
+
+function esc(s){ if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function productName(code){ const p=PRODUCTS.find(x=>x.code===code); return p?p.name:''; }
+
+function render(){
+  let rows=[...records].reverse();
+  if(currentTab==='out')      rows=rows.filter(r=>r.status==='out');
+  if(currentTab==='partial')  rows=rows.filter(r=>r.status==='partial');
+  if(currentTab==='returned') rows=rows.filter(r=>r.status==='returned');
+  if(currentTab==='noreturn') rows=rows.filter(r=>r.status==='noreturn');
+
+  const tbody=document.getElementById('tallyBody');
+  const tfoot=document.getElementById('tallyFoot');
+  const empty=document.getElementById('emptyMsg');
+  document.getElementById('rowCount').textContent='— '+rows.length+' record'+(rows.length!==1?'s':'');
+
+  if(!rows.length){ tbody.innerHTML=''; tfoot.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  let no=rows.length;
+  tbody.innerHTML=rows.map(r=>{
+    const bal=r.qtyOut-r.qtyReturned;
+    const bc=bal>0?'#92400e':'#065f46';
+    const affiliate = esc(r.affiliate||'');
+    const retAffiliate = esc(r.retAffiliate||'');
+    const affiliateDisplay = retAffiliate && retAffiliate!==affiliate
+      ? affiliate + (retAffiliate ? ' / '+retAffiliate : '')
+      : affiliate;
+    const rem=esc([r.remark,r.retRemark].filter(Boolean).join(' / '));
+    return '<tr>'
+      +'<td style="color:#b4b2a9">'+(no--)+'</td>'
+      +'<td><b>'+esc(r.pic)+'</b></td>'
+      +'<td style="color:#888780;font-size:11px" title="'+affiliateDisplay+'">'+affiliateDisplay+'</td>'
+      +'<td style="font-family:monospace;font-size:11px" title="'+esc(r.lur)+'">'+esc(r.lur)+'</td>'
+      +'<td>'+locBadge(r.location)+'</td>'
+      +'<td title="'+esc(productName(r.product))+'" style="font-size:11px">'+esc(r.product)+'</td>'
+      +'<td>'+gradeBadge(r.grade)+'</td>'
+      +'<td style="color:#92400e;font-weight:700">'+r.qtyOut+'</td>'
+      +'<td style="color:#065f46;font-weight:700">'+r.qtyReturned+'</td>'
+      +'<td style="font-weight:700;color:'+bc+'">'+bal+'</td>'
+      +'<td style="color:#888780">'+esc(r.dateTaken)+'</td>'
+      +'<td style="color:#888780">'+(r.dateReturn||'—')+'</td>'
+      +'<td>'+badge(r)+'</td>'
+      +'<td title="'+rem+'" style="color:#888780;font-size:11px">'+rem+'</td>'
+      +'<td><button onclick="deleteRecord('+r.id+')" style="background:none;border:none;cursor:pointer;color:#d3d1c7;font-size:18px;line-height:1;padding:0 4px" title="Delete">×</button></td>'
+      +'</tr>';
+  }).join('');
+
+  const tO=rows.reduce((s,r)=>s+r.qtyOut,0);
+  const tR=rows.reduce((s,r)=>s+r.qtyReturned,0);
+  const tB=tO-tR;
+  tfoot.innerHTML='<tr>'
+    +'<td colspan="7" style="color:#888780;font-size:11px">Total ('+rows.length+' records)</td>'
+    +'<td style="color:#92400e">'+tO+'</td>'
+    +'<td style="color:#065f46">'+tR+'</td>'
+    +'<td style="color:'+(tB>0?'#92400e':'#065f46')+'">'+tB+'</td>'
+    +'<td colspan="5"></td></tr>';
+}
+
+function updateKpis(){
+  const tO   = records.reduce((s,r)=>s+r.qtyOut,0);
+  const tR   = records.reduce((s,r)=>s+r.qtyReturned,0);
+  const noret= records.filter(r=>r.status==='noreturn').reduce((s,r)=>s+r.qtyOut,0);
+  const pend = records.filter(r=>r.status==='out'||r.status==='partial').reduce((s,r)=>s+(r.qtyOut-r.qtyReturned),0);
+  document.getElementById('kpi-total').textContent=tO;
+  document.getElementById('kpi-ret').textContent=tR;
+  document.getElementById('kpi-pend').textContent=pend;
+  document.getElementById('kpi-noret').textContent=noret;
+}
+
+function gradeLabel(g){ return g==='A'?'A - New Stock':g==='L'?'L - Loan Stock':g; }
+
+function exportXlsx(){
+  if(!records.length){ toast('No records to export'); return; }
+  const rows=records.map(r=>({
+    'PIC':r.pic,
+    'Affiliate (Taken)':r.affiliate||'',
+    'Affiliate (Return)':r.retAffiliate||'',
+    'LUR':r.lur,
+    'Stock Location':r.location,
+    'Product Code':r.product,
+    'Product Name':productName(r.product),
+    'Grade':gradeLabel(r.grade),
+    'Qty Out':r.qtyOut,
+    'Qty Returned':r.qtyReturned,
+    'Balance':r.qtyOut-r.qtyReturned,
+    'Date Taken':r.dateTaken,
+    'Date Returned':r.dateReturn||'',
+    'Status':r.status==='out'?'Pending':r.status==='partial'?'Partial':r.status==='returned'?'Returned':'Non-return',
+    'Remark':[r.remark,r.retRemark].filter(Boolean).join(' / ')
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[10,16,16,16,10,14,36,16,8,12,8,12,14,12,30].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Stock Tracker');
+  XLSX.writeFile(wb,'HQ_Stock_Tracker_'+today()+'.xlsx');
+  toast('Excel exported');
+}
+
+function toggleShare(){
+  const p=document.getElementById('sharePanel');
+  p.style.display=p.style.display==='none'?'block':'none';
+  document.getElementById('shareBox').style.display='none';
+}
+
+function generateShareLink(){
+  if(!records.length){ toast('No records yet'); return; }
+  try{
+    const encoded=btoa(encodeURIComponent(JSON.stringify(records)));
+    const url=location.href.split('#')[0]+'#data='+encoded;
+    document.getElementById('shareUrl').value=url;
+    document.getElementById('shareBox').style.display='flex';
+    toast('Link ready — copy and share!');
+  }catch(e){ toast('Data too large — use Export Excel instead'); }
+}
+
+function copyLink(){
+  const el=document.getElementById('shareUrl'); el.select();
+  try{ navigator.clipboard.writeText(el.value).then(()=>toast('Copied!')); }
+  catch(e){ document.execCommand('copy'); toast('Copied!'); }
+}
+
+// Clear error highlight on change
+document.querySelectorAll('input,select').forEach(el=>{
+  el.addEventListener('input', ()=>el.classList.remove('err'));
+  el.addEventListener('change',()=>el.classList.remove('err'));
+});
+
+buildProductDropdown();
+load(); checkUrl(); refreshLurSelect(); render(); updateKpis();
+</script>
+</body>
+</html>
